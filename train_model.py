@@ -6,6 +6,7 @@ import tensorflow as tf
 from tensorflow import keras
 import pickle
 
+
 print("Loading data...")
 df = pd.read_csv("gesture_data.csv")
 
@@ -18,6 +19,7 @@ y_categorical = keras.utils.to_categorical(y_encoded)
 
 with open("label_encoder.pkl", "wb") as f:
     pickle.dump(encoder, f)
+
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y_categorical, test_size=0.2, random_state=42
