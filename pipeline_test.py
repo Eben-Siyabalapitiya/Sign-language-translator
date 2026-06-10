@@ -2,10 +2,12 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
+# Initialize MediaPipe modules used by the pipeline.
 mp_hands = mp.solutions.hands
 mp_pose  = mp.solutions.pose
 mp_draw  = mp.solutions.drawing_utils
 
+# Create the hand and pose detector objects.
 hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7)
 pose  = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
@@ -20,6 +22,7 @@ def draw_rounded_rect(img, x, y, w, h, r, color, alpha=0.7):
     cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
 
 def draw_normal(frame, pose_result, hands_result):
+    """Render the normal live camera view with pose and hand overlays."""
     h, w = frame.shape[:2]
 
     # Draw faint pose
@@ -31,7 +34,7 @@ def draw_normal(frame, pose_result, hands_result):
             mp_draw.DrawingSpec(color=(45, 45, 45), thickness=1)
         )
 
-    # Draw hands
+    # Draw hands if any are detected.
     if hands_result.multi_hand_landmarks:
         for hand_lm in hands_result.multi_hand_landmarks:
             mp_draw.draw_landmarks(
@@ -40,7 +43,7 @@ def draw_normal(frame, pose_result, hands_result):
                 mp.solutions.drawing_styles.get_default_hand_connections_style()
             )
 
-    # Top label
+    # Top label for the live feed.
     draw_rounded_rect(frame, 10, 10, 200, 36, 8, (12, 12, 12), alpha=0.75)
     cv2.putText(frame, "LIVE FEED", (22, 33),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
@@ -53,9 +56,10 @@ def draw_normal(frame, pose_result, hands_result):
 
 
 def draw_mask(frame_shape, pose_result, hands_result):
+    """Render the pipeline mask view with stylized pose and hand visuals."""
     h, w = frame_shape[:2]
 
-    # Pure black canvas
+    # Pure black canvas for the overlay mask.
     mask = np.zeros((h, w, 3), dtype=np.uint8)
 
     # Scanline effect — very subtle horizontal lines
@@ -116,7 +120,7 @@ def draw_mask(frame_shape, pose_result, hands_result):
                     cv2.circle(mask, (cx, cy), 4,  (80, 50, 160), -1)
                     cv2.circle(mask, (cx, cy), 2,  (200, 160, 255), -1)
 
-    # ── WRIST POSITION INDICATOR ──────────────────────
+    # ── WRIST POSITION INDICATOR — reference line from hand to nose ───
     if hands_result.multi_hand_landmarks and pose_result.pose_landmarks:
         pose_lms = pose_result.pose_landmarks.landmark
         nose = pose_lms[mp_pose.PoseLandmark.NOSE]
@@ -134,7 +138,7 @@ def draw_mask(frame_shape, pose_result, hands_result):
                 dy = int(wy + (ny - wy) * t)
                 cv2.circle(mask, (dx, dy), 2, (50, 50, 80), -1)
 
-    # ── CORNER BRACKETS ───────────────────────────────
+    # ── CORNER BRACKETS — stylized border decorations ───────────────
     bracket_color = (60, 60, 80)
     blen = 30
     bt   = 2
@@ -151,7 +155,7 @@ def draw_mask(frame_shape, pose_result, hands_result):
     cv2.line(mask, (w - 10, h - 10), (w - 10 - blen, h - 10), bracket_color, bt)
     cv2.line(mask, (w - 10, h - 10), (w - 10, h - 10 - blen), bracket_color, bt)
 
-    # ── STATS ─────────────────────────────────────────
+    # ── STATS — display number of detected hands and pose status ─────
     num_hands = len(hands_result.multi_hand_landmarks) if hands_result.multi_hand_landmarks else 0
     body_ok   = pose_result.pose_landmarks is not None
 
@@ -179,8 +183,7 @@ def draw_mask(frame_shape, pose_result, hands_result):
 
     return mask
 
-
-# ── MAIN LOOP ─────────────────────────────────────────
+# ── MAIN LOOP — capture webcam frames and show both views ───────────
 cap = cv2.VideoCapture(0)
 
 while True:
@@ -188,15 +191,19 @@ while True:
     if not ret:
         break
 
+    # Mirror the frame and convert to RGB for MediaPipe processing.
     frame = cv2.flip(frame, 1)
     rgb   = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+    # Detect body pose and hands in the current frame.
     pose_result  = pose.process(rgb)
     hands_result = hands.process(rgb)
 
+    # Create both display views from the detection results.
     normal_view = draw_normal(frame.copy(), pose_result, hands_result)
     mask_view   = draw_mask(frame.shape, pose_result, hands_result)
 
+    # Show the live camera feed and the stylized pipeline mask.
     cv2.imshow("Live Feed", normal_view)
     cv2.imshow("Pipeline Vision", mask_view)
 
