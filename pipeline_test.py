@@ -46,7 +46,7 @@ def draw_normal(frame, pose_result, hands_result):
 
     # Top label for the live feed.
     draw_rounded_rect(frame, 10, 10, 200, 36, 8, (12, 12, 12), alpha=0.75)
-    cv2.putText(frame, "LIVE FEED", (22, 33),
+    cv2.putText(frame, "LIVE FEED (change 2)", (22, 33),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
 
     # Bottom hint
