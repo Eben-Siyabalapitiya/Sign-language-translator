@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
+# TEMP CHANGE 3: Marker comment for repeated sequence.
 # Initialize MediaPipe modules used by the pipeline.
 mp_hands = mp.solutions.hands
 mp_pose  = mp.solutions.pose
