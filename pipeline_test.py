@@ -25,7 +25,7 @@ def draw_normal(frame, pose_result, hands_result):
     """Render the normal live camera view with pose and hand overlays."""
     h, w = frame.shape[:2]
 
-    # Draw faint pose 
+    # Draw faint pose asl
     if pose_result.pose_landmarks:
         mp_draw.draw_landmarks(
             frame, pose_result.pose_landmarks,
@@ -41,9 +41,11 @@ def draw_normal(frame, pose_result, hands_result):
                 frame, hand_lm, mp_hands.HAND_CONNECTIONS,
                 mp.solutions.drawing_styles.get_default_hand_landmarks_style(),
                 mp.solutions.drawing_styles.get_default_hand_connections_style()
+                
             )
-
+            
     # Top label for the live feed.
+    
     draw_rounded_rect(frame, 10, 10, 200, 36, 8, (12, 12, 12), alpha=0.75)
     cv2.putText(frame, "LIVE FEED", (22, 33),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)

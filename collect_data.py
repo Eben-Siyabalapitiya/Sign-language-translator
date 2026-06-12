@@ -113,7 +113,7 @@ def collect_data():
         hand_detected = False
         pose_detected = pose_result.pose_landmarks is not None
 
-        # Default both hands to zeros i think
+        # Default both hands to zeros i thin
         hand1_data = [0.0] * 63
         hand2_data = [0.0] * 63
         body_rel   = [0.0] * 6
@@ -130,8 +130,7 @@ def collect_data():
                 mp.solutions.drawing_styles.get_default_hand_connections_style())
             wrist1 = h1.landmark[0]
             hand1_data = normalize_hand(h1.landmark, wrist1)
-            primary_wrist = wrist1
-#testing 
+            primary_wrist = wrist1#testing 
     
 
 #testing
