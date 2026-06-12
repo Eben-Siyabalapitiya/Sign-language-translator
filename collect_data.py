@@ -86,7 +86,7 @@ def collect_data():
     samples_per_label = 300
     current_samples = 0
     collecting = False
-
+    
     WHITE  = (255, 255, 255)
     GREEN  = (80, 200, 120)
     DARK   = (15, 15, 15)
@@ -96,7 +96,7 @@ def collect_data():
     print(f"\nReady to collect: {labels[current_label_idx]}")
     print("Press SPACE to start/stop collecting")
     print("Press N to move to next gesture")
-    print("Press Q to quit\n")
+    print("Press Q to stop\n")
 
     while True:
         ret, frame = cap.read()
@@ -113,16 +113,16 @@ def collect_data():
         hand_detected = False
         pose_detected = pose_result.pose_landmarks is not None
 
-        # Default both hands to zeros
+        # Default both hands to zeros i think
         hand1_data = [0.0] * 63
         hand2_data = [0.0] * 63
         body_rel   = [0.0] * 6
         primary_wrist = None
-
+            
         if hands_result.multi_hand_landmarks:
             hand_detected = True
             all_hands = hands_result.multi_hand_landmarks
-
+            
             # First hand
             h1 = all_hands[0]
             mp_draw.draw_landmarks(frame, h1, mp_hands.HAND_CONNECTIONS,
@@ -131,6 +131,10 @@ def collect_data():
             wrist1 = h1.landmark[0]
             hand1_data = normalize_hand(h1.landmark, wrist1)
             primary_wrist = wrist1
+#testing 
+    
+
+#testing
 
             # Second hand if present
             if len(all_hands) > 1:
@@ -151,7 +155,7 @@ def collect_data():
                     writer = csv.writer(f)
                     writer.writerow(hand1_data + hand2_data + body_rel + [labels[current_label_idx]])
                 current_samples += 1
-
+                
         # Draw pose skeleton lightly
         if pose_result.pose_landmarks:
             mp_draw.draw_landmarks(
@@ -160,7 +164,7 @@ def collect_data():
                 mp_draw.DrawingSpec(color=(60, 60, 60), thickness=1, circle_radius=1),
                 mp_draw.DrawingSpec(color=(50, 50, 50), thickness=1)
             )
-
+                
         # ── TOP LEFT PANEL ──────────────────────────
         panel_w, panel_h = 310, 175
         draw_rounded_rect(frame, 10, 10, panel_w, panel_h, 12, DARK, alpha=0.65)

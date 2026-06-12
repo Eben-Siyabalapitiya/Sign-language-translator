@@ -20,12 +20,12 @@ def draw_rounded_rect(img, x, y, w, h, r, color, alpha=0.7):
     cv2.circle(overlay, (x + r,     y + h - r), r, color, -1)
     cv2.circle(overlay, (x + w - r, y + h - r), r, color, -1)
     cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
-
+    
 def draw_normal(frame, pose_result, hands_result):
     """Render the normal live camera view with pose and hand overlays."""
     h, w = frame.shape[:2]
 
-    # Draw faint pose
+    # Draw faint pose 
     if pose_result.pose_landmarks:
         mp_draw.draw_landmarks(
             frame, pose_result.pose_landmarks,
@@ -212,3 +212,7 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+
+
+

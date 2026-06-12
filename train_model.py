@@ -52,6 +52,7 @@ model.compile(
 
 model.summary()
 
+
 print("\nTraining...")
 history = model.fit(
     X_train, y_train,
@@ -60,7 +61,6 @@ history = model.fit(
     validation_data=(X_test, y_test),
     verbose=1
 )
-
 loss, accuracy = model.evaluate(X_test, y_test)
 print(f"\nTest Accuracy: {accuracy*100:.2f}%")
 

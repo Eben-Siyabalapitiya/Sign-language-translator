@@ -22,7 +22,7 @@ prediction_buffer = deque(maxlen=10)
 
 def speak(text):
     engine = pyttsx3.init()
-    engine.setProperty('rate', 150)
+    engine.setProperty('srate', 150)
     engine.setProperty('volume', 1.0)
     engine.say(text)
     engine.runAndWait()
@@ -397,11 +397,10 @@ while True:
                     cv2.FONT_HERSHEY_SIMPLEX,0.25,(160,160,160),1)
         yoff += 12
 
-    # ── S3 CLASS PROBABILITIES ───────────────────────
+    # ── S3 CLASS PROBABILITIES (needs testing)
     s3x = section_w*2 + 10
     cv2.putText(calc, "CLASS PROBABILITIES", (s3x, 22),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.4, LGRAY, 1)
-
     if predictions_raw is not None:
         probs      = predictions_raw[0]
         sorted_idx = np.argsort(probs)[::-1]
@@ -421,7 +420,7 @@ while True:
                         cv2.FONT_HERSHEY_SIMPLEX,0.27,
                         GREEN if is_top else (90,90,90),1)
 
-    # ── S4 PREDICTION ────────────────────────────────
+    # ── S4 PREDICTION (test this with ps)
     s4x       = section_w*3 + 10
     s4w       = section_w - 20
     pred_color = GREEN if confidence_val > 0.85 else ACCENT
