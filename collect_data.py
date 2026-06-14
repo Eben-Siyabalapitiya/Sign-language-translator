@@ -257,3 +257,4 @@ def collect_data():
     cv2.destroyAllWindows()
 
 collect_data()
+

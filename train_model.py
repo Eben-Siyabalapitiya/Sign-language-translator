@@ -59,9 +59,12 @@ history = model.fit(
     epochs=60,
     batch_size=32,
     validation_data=(X_test, y_test),
-    verbose=1
+    verbose=1 
 )
 loss, accuracy = model.evaluate(X_test, y_test)
 print(f"\nTest Accuracy: {accuracy*100:.2f}%")
 model.save("gesture_model.keras")
 print("Model saved as gesture_model.keras")
+
+
+
