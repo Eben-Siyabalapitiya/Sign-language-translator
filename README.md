@@ -1,15 +1,3 @@
----
-title: SignLang AI
-emoji: 🤟
-colorFrom: blue
-colorTo: green
-sdk: gradio
-sdk_version: 4.44.0
-app_file: app.py
-pinned: false
-python_version: "3.11"
----
-
 # SignLang AI
 
 Real-time sign language recognition system. Show a gesture to your webcam, get the word spoken aloud in under a second.
