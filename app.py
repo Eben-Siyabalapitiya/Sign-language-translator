@@ -1,23 +1,69 @@
 import gradio as gr
 import cv2
-import mediapipe as mp
 import numpy as np
 import tensorflow as tf
 import pickle
+import os
+import urllib.request
 from collections import deque, Counter
 
-mp_hands = mp.solutions.hands
-mp_pose  = mp.solutions.pose
-mp_draw  = mp.solutions.drawing_utils
+import mediapipe as mp
+from mediapipe.tasks import python as mp_python
+from mediapipe.tasks.python import vision
 
-hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7)
-pose  = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+# ── DOWNLOAD MODEL FILES (one-time, cached after first run) ──
+HAND_MODEL_PATH = "hand_landmarker.task"
+POSE_MODEL_PATH = "pose_landmarker.task"
 
+HAND_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+POSE_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+
+if not os.path.exists(HAND_MODEL_PATH):
+    urllib.request.urlretrieve(HAND_MODEL_URL, HAND_MODEL_PATH)
+
+if not os.path.exists(POSE_MODEL_PATH):
+    urllib.request.urlretrieve(POSE_MODEL_URL, POSE_MODEL_PATH)
+
+# ── SETUP DETECTORS (new Tasks API) ──
+hand_options = vision.HandLandmarkerOptions(
+    base_options=mp_python.BaseOptions(model_asset_path=HAND_MODEL_PATH),
+    num_hands=2,
+    min_hand_detection_confidence=0.7,
+)
+hand_detector = vision.HandLandmarker.create_from_options(hand_options)
+
+pose_options = vision.PoseLandmarkerOptions(
+    base_options=mp_python.BaseOptions(model_asset_path=POSE_MODEL_PATH),
+    min_pose_detection_confidence=0.5,
+)
+pose_detector = vision.PoseLandmarker.create_from_options(pose_options)
+
+# ── LOAD YOUR TRAINED MODEL ──
 model = tf.keras.models.load_model("gesture_model.keras")
 with open("label_encoder.pkl", "rb") as f:
     encoder = pickle.load(f)
 
 prediction_buffer = deque(maxlen=10)
+
+# ── HAND / POSE CONNECTION TOPOLOGY (hardcoded, standard MediaPipe layout) ──
+HAND_CONNECTIONS = [
+    (0,1),(1,2),(2,3),(3,4),
+    (0,5),(5,6),(6,7),(7,8),
+    (0,9),(9,10),(10,11),(11,12),
+    (0,13),(13,14),(14,15),(15,16),
+    (0,17),(17,18),(18,19),(19,20),
+    (5,9),(9,13),(13,17)
+]
+
+POSE_CONNECTIONS = [
+    (0,1),(0,4),(1,2),(2,3),(3,7),(4,5),(5,6),(6,8),
+    (9,10),(11,12),(11,13),(11,23),(12,14),(12,24),
+    (13,15),(14,16),(15,17),(15,19),(15,21),(16,18),(16,20),(16,22),
+    (17,19),(18,20),(19,21),(20,22),(23,24),(23,25),(24,26),
+    (25,27),(26,28),(27,29),(27,31),(28,30),(28,32),(29,31),(30,32)
+]
+
+FINGERTIPS = [4, 8, 12, 16, 20]
 
 
 def normalize_hand(landmarks, wrist):
@@ -36,12 +82,11 @@ def normalize_hand(landmarks, wrist):
 
 
 def get_body_relative_position(hand_wrist, pose_landmarks):
-    if pose_landmarks is None:
+    if not pose_landmarks:
         return [0, 0, 0, 0, 0, 0]
-    lms        = pose_landmarks.landmark
-    nose       = lms[mp_pose.PoseLandmark.NOSE]
-    l_shoulder = lms[mp_pose.PoseLandmark.LEFT_SHOULDER]
-    r_shoulder = lms[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+    nose       = pose_landmarks[0]
+    l_shoulder = pose_landmarks[11]
+    r_shoulder = pose_landmarks[12]
     shoulder_width = abs(l_shoulder.x - r_shoulder.x)
     if shoulder_width < 0.01:
         shoulder_width = 0.01
@@ -74,6 +119,25 @@ def draw_progress_bar(frame, x, y, w, h, progress, color_fill, color_bg):
         cv2.rectangle(frame, (x, y), (x+fill_w, y+h), color_fill, -1)
 
 
+def draw_hand(img, landmarks, w, h):
+    pts = [(int(lm.x*w), int(lm.y*h)) for lm in landmarks]
+    for s, e in HAND_CONNECTIONS:
+        cv2.line(img, pts[s], pts[e], (60, 140, 255), 2)
+    for i, pt in enumerate(pts):
+        color = (200, 160, 255) if i in FINGERTIPS else (160, 100, 220)
+        cv2.circle(img, pt, 4, color, -1)
+
+
+def draw_pose(img, landmarks, w, h):
+    pts = [(int(lm.x*w), int(lm.y*h)) for lm in landmarks]
+    for s, e in POSE_CONNECTIONS:
+        if s < len(pts) and e < len(pts):
+            cv2.line(img, pts[s], pts[e], (45, 45, 45), 1)
+    for i, pt in enumerate(pts):
+        if i in (0, 11, 12):  # nose, shoulders
+            cv2.circle(img, pt, 3, (80, 220, 180), -1)
+
+
 WHITE  = (255, 255, 255)
 GREEN  = (80, 200, 120)
 DARK   = (12, 12, 12)
@@ -95,31 +159,31 @@ def process_frame(img):
     h, w = img.shape[:2]
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    pose_result  = pose.process(rgb)
-    hands_result = hands.process(rgb)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+    hand_result = hand_detector.detect(mp_image)
+    pose_result = pose_detector.detect(mp_image)
 
-    display_word  = ""
-    confidence_val = 0.0
-    num_hands = 0
+    display_word   = ""
+    confidence_val  = 0.0
+    num_hands       = 0
 
-    if hands_result.multi_hand_landmarks:
-        num_hands = len(hands_result.multi_hand_landmarks)
-        for h_lm in hands_result.multi_hand_landmarks:
-            mp_draw.draw_landmarks(
-                img, h_lm, mp_hands.HAND_CONNECTIONS,
-                mp.solutions.drawing_styles.get_default_hand_landmarks_style(),
-                mp.solutions.drawing_styles.get_default_hand_connections_style()
-            )
+    pose_landmarks = pose_result.pose_landmarks[0] if pose_result.pose_landmarks else None
 
-        h1 = hands_result.multi_hand_landmarks[0]
-        wrist1 = h1.landmark[0]
-        hand1_data = normalize_hand(h1.landmark, wrist1)
-        body_rel = get_body_relative_position(wrist1, pose_result.pose_landmarks)
+    if hand_result.hand_landmarks:
+        num_hands = len(hand_result.hand_landmarks)
+
+        for hand_lms in hand_result.hand_landmarks:
+            draw_hand(img, hand_lms, w, h)
+
+        h1 = hand_result.hand_landmarks[0]
+        wrist1 = h1[0]
+        hand1_data = normalize_hand(h1, wrist1)
+        body_rel = get_body_relative_position(wrist1, pose_landmarks)
 
         hand2_data = [0.0] * 63
         if num_hands > 1:
-            h2 = hands_result.multi_hand_landmarks[1]
-            hand2_data = normalize_hand(h2.landmark, h2.landmark[0])
+            h2 = hand_result.hand_landmarks[1]
+            hand2_data = normalize_hand(h2, h2[0])
 
         input_data = np.array(hand1_data + hand2_data + body_rel).reshape(1, -1)
         preds = model.predict(input_data, verbose=0)
@@ -137,12 +201,8 @@ def process_frame(img):
                     if len(word_history) > 5:
                         word_history.pop(0)
 
-    if pose_result.pose_landmarks:
-        mp_draw.draw_landmarks(
-            img, pose_result.pose_landmarks, mp_pose.POSE_CONNECTIONS,
-            mp_draw.DrawingSpec(color=(45,45,45), thickness=1, circle_radius=1),
-            mp_draw.DrawingSpec(color=(35,35,35), thickness=1)
-        )
+    if pose_landmarks:
+        draw_pose(img, pose_landmarks, w, h)
 
     # Prediction card
     card_w, card_h = min(380, w-20), 80
@@ -197,4 +257,4 @@ with gr.Blocks(title="Sign Language Translator") as demo:
     webcam.stream(fn=process_frame, inputs=webcam, outputs=output)
 
 if __name__ == "__main__":
-    demo.launch(share=True)
+    demo.launch()
