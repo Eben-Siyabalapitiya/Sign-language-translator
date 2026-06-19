@@ -25,6 +25,8 @@ Tracks your hand gestures and converts them to speech. Uses MediaPipe to detect 
 - 15 trained gesture classes (yes, no, hello, help, emergency, etc.)
 - Real-time dashboard showing hand skeleton, landmarks, and predictions
 - Works with one or two hands
+- Body-relative positioning for accuracy
+
 
 
 ## Tech Stack
